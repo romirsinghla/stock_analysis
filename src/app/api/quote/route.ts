@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { finnhub } from '@/lib/api-clients'
+import { yahooFinance, alphaVantage, finnhub } from '@/lib/api-clients'
 import { cache } from '@/lib/redis'
+import { sampleQuotes } from '@/lib/sample-data'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,14 +15,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const cacheKey = `quote:${symbol.toUpperCase()}`
-    const cached = await cache.get(cacheKey)
-    
-    if (cached) {
-      return NextResponse.json(cached)
-    }
-
-    const quote = await finnhub.getQuote(symbol.toUpperCase())
+    // DEMO MODE: Use sample data (skip cache for speed)
+    const quote = sampleQuotes[symbol.toUpperCase()]
     
     if (!quote) {
       return NextResponse.json(
@@ -30,9 +25,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    await cache.set(cacheKey, quote, 30)
+    // Add demo indicator and update timestamp
+    const demoQuote = {
+      ...quote,
+      isDemoData: true,
+      timestamp: Date.now()
+    }
 
-    return NextResponse.json(quote)
+    return NextResponse.json(demoQuote)
   } catch (error) {
     console.error('Quote API error:', error)
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { finnhub } from '@/lib/api-clients'
 import { cache } from '@/lib/redis'
+import { sampleAnalyst } from '@/lib/sample-data'
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,14 +22,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached)
     }
 
-    const [recommendations, priceTarget] = await Promise.all([
-      finnhub.getAnalystRecommendations(symbol.toUpperCase()),
-      finnhub.getPriceTarget(symbol.toUpperCase())
-    ])
-
-    const analystData = {
-      recommendations,
-      priceTarget
+    // DEMO MODE: Use sample analyst data
+    const analystData = sampleAnalyst[symbol.toUpperCase()] || {
+      recommendations: null,
+      priceTarget: null
     }
 
     await cache.set(cacheKey, analystData, 3600)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { alphaVantage } from '@/lib/api-clients'
 import { cache } from '@/lib/redis'
+import { generateChartData } from '@/lib/sample-data'
 import type { TimeFrame } from '@/types'
 
 export async function GET(request: NextRequest) {
@@ -23,7 +24,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached)
     }
 
-    const chartData = await alphaVantage.getHistoricalData(symbol.toUpperCase(), timeframe)
+    // DEMO MODE: Use sample chart data
+    const chartData = generateChartData(symbol.toUpperCase(), timeframe)
     
     const ttl = timeframe === '1D' ? 60 : timeframe === '5D' ? 300 : 3600
     await cache.set(cacheKey, chartData, ttl)

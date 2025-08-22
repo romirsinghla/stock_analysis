@@ -1,12 +1,118 @@
 import axios from 'axios'
 import type { Quote, ChartData, Company, SearchResult, AnalystRecommendation, PriceTarget } from '@/types'
 
+export class YahooFinanceClient {
+  async getQuote(symbol: string): Promise<Quote | null> {
+    try {
+      // Try the alternate Yahoo Finance endpoint
+      const response = await axios.get(`https://query1.finance.yahoo.com/v7/finance/quote`, {
+        params: {
+          symbols: symbol,
+          fields: 'regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketDayHigh,regularMarketDayLow,regularMarketOpen,regularMarketPreviousClose,regularMarketVolume'
+        },
+        timeout: 8000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        }
+      })
+
+      const result = response.data?.quoteResponse?.result?.[0]
+      if (!result) return null
+
+      return {
+        symbol: result.symbol,
+        price: result.regularMarketPrice || 0,
+        change: result.regularMarketChange || 0,
+        changePercent: result.regularMarketChangePercent || 0,
+        high: result.regularMarketDayHigh || 0,
+        low: result.regularMarketDayLow || 0,
+        open: result.regularMarketOpen || 0,
+        previousClose: result.regularMarketPreviousClose || 0,
+        volume: result.regularMarketVolume || 0,
+        marketCap: result.marketCap,
+        timestamp: Date.now(),
+      }
+    } catch (error) {
+      console.error('Yahoo Finance quote error:', error)
+      return null
+    }
+  }
+
+  async searchSymbols(query: string): Promise<SearchResult[]> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/search`, {
+        params: {
+          q: query,
+          quotesCount: 10,
+          newsCount: 0,
+        },
+        timeout: 10000
+      })
+
+      const quotes = response.data?.quotes || []
+      return quotes.map((quote: any) => ({
+        symbol: quote.symbol,
+        name: quote.shortname || quote.longname || '',
+        type: quote.typeDisp || 'Stock',
+        region: quote.region || 'US',
+        marketOpen: '9:30',
+        marketClose: '16:00',
+        timezone: 'EST',
+        currency: 'USD',
+        matchScore: 1.0,
+      }))
+    } catch (error) {
+      console.error('Yahoo Finance search error:', error)
+      return []
+    }
+  }
+}
+
 export class AlphaVantageClient {
   private apiKey: string
   private baseUrl = 'https://www.alphavantage.co/query'
 
   constructor() {
     this.apiKey = process.env.ALPHA_VANTAGE_API_KEY || ''
+  }
+
+  async getQuote(symbol: string): Promise<Quote | null> {
+    try {
+      const response = await axios.get(this.baseUrl, {
+        params: {
+          function: 'GLOBAL_QUOTE',
+          symbol,
+          apikey: this.apiKey,
+        },
+        timeout: 10000
+      })
+
+      const quote = response.data['Global Quote']
+      if (!quote) {
+        console.error('Alpha Vantage: No quote data received')
+        return null
+      }
+
+      const price = parseFloat(quote['05. price']) || 0
+      const change = parseFloat(quote['09. change']) || 0
+      const changePercent = parseFloat(quote['10. change percent']?.replace('%', '')) || 0
+
+      return {
+        symbol: quote['01. symbol'],
+        price,
+        change,
+        changePercent,
+        high: parseFloat(quote['03. high']) || 0,
+        low: parseFloat(quote['04. low']) || 0,
+        open: parseFloat(quote['02. open']) || 0,
+        previousClose: parseFloat(quote['08. previous close']) || 0,
+        volume: parseInt(quote['06. volume']) || 0,
+        timestamp: Date.now(),
+      }
+    } catch (error) {
+      console.error('Alpha Vantage quote error:', error)
+      return null
+    }
   }
 
   async getHistoricalData(symbol: string, timeframe: string = 'daily'): Promise<ChartData[]> {
@@ -206,5 +312,6 @@ export class FinnhubClient {
   }
 }
 
+export const yahooFinance = new YahooFinanceClient()
 export const alphaVantage = new AlphaVantageClient()
 export const finnhub = new FinnhubClient()

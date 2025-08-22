@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { finnhub } from '@/lib/api-clients'
 import { cache } from '@/lib/redis'
+import { sampleCompanies } from '@/lib/sample-data'
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +22,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached)
     }
 
-    const company = await finnhub.getCompanyProfile(symbol.toUpperCase())
+    // DEMO MODE: Use sample company data
+    const company = sampleCompanies[symbol.toUpperCase()]
     
     if (!company) {
       return NextResponse.json(
