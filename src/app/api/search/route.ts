@@ -15,36 +15,36 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // DEMO MODE: Use sample data for search (skip cache for speed)
-    const lowerQuery = query.toLowerCase()
+    const cacheKey = `search:${query.toLowerCase()}`
+    const cached = await cache.get(cacheKey)
     
-    // Create expanded search data including company names
-    const searchableData = [
-      { symbol: 'AAPL', name: 'Apple Inc.', keywords: ['apple', 'iphone', 'mac'] },
-      { symbol: 'GOOGL', name: 'Alphabet Inc.', keywords: ['google', 'alphabet', 'search', 'android'] },
-      { symbol: 'TSLA', name: 'Tesla, Inc.', keywords: ['tesla', 'electric', 'musk', 'ev'] },
-      { symbol: 'MSFT', name: 'Microsoft Corporation', keywords: ['microsoft', 'windows', 'office', 'azure'] },
-      { symbol: 'NVDA', name: 'NVIDIA Corporation', keywords: ['nvidia', 'gpu', 'graphics', 'ai'] }
-    ]
+    if (cached) {
+      console.log(`Cache hit for search: ${query}`)
+      return NextResponse.json(cached)
+    }
+
+    // Try Yahoo Finance first, fallback to Alpha Vantage
+    let results = []
     
-    const results = searchableData
-      .filter(item => 
-        item.symbol.toLowerCase().includes(lowerQuery) ||
-        item.name.toLowerCase().includes(lowerQuery) ||
-        item.keywords.some(keyword => keyword.includes(lowerQuery))
-      )
-      .map(item => ({
-        symbol: item.symbol,
-        name: item.name,
-        type: 'Equity',
-        region: 'US',
-        marketOpen: '09:30',
-        marketClose: '16:00',
-        timezone: 'US/Eastern',
-        currency: 'USD',
-        matchScore: item.symbol.toLowerCase() === lowerQuery ? 1.0 : 0.8
-      }))
-      .slice(0, 5) // Limit results
+    try {
+      console.log(`Trying Yahoo Finance search for: ${query}`)
+      results = await yahooFinance.searchSymbols(query)
+    } catch (error) {
+      console.error('Yahoo Finance search failed:', error)
+    }
+    
+    if (results.length === 0) {
+      try {
+        console.log(`Trying Alpha Vantage search for: ${query}`)
+        results = await alphaVantage.searchSymbols(query)
+      } catch (error) {
+        console.error('Alpha Vantage search failed:', error)
+      }
+    }
+    
+    // Cache for 5 minutes
+    await cache.set(cacheKey, results, 300)
+    console.log(`Cached search results for: ${query}`)
 
     return NextResponse.json(results)
   } catch (error) {

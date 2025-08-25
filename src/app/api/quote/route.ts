@@ -15,24 +15,54 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // DEMO MODE: Use sample data (skip cache for speed)
-    const quote = sampleQuotes[symbol.toUpperCase()]
+    const cacheKey = `quote:${symbol.toUpperCase()}`
+    const cached = await cache.get(cacheKey)
+    
+    if (cached) {
+      console.log(`Cache hit for ${symbol}`)
+      return NextResponse.json(cached)
+    }
+
+    // Try multiple sources: Alpha Vantage first, then Yahoo Finance, then Finnhub
+    let quote = null
+    
+    try {
+      console.log(`Trying Alpha Vantage for ${symbol}...`)
+      quote = await alphaVantage.getQuote(symbol.toUpperCase())
+    } catch (error) {
+      console.error('Alpha Vantage failed:', error)
+    }
+    
+    if (!quote) {
+      try {
+        console.log(`Trying Yahoo Finance for ${symbol}...`)
+        quote = await yahooFinance.getQuote(symbol.toUpperCase())
+      } catch (error) {
+        console.error('Yahoo Finance failed:', error)
+      }
+    }
+    
+    if (!quote) {
+      try {
+        console.log(`Trying Finnhub for ${symbol}...`)
+        quote = await finnhub.getQuote(symbol.toUpperCase())
+      } catch (error) {
+        console.error('Finnhub failed:', error)
+      }
+    }
     
     if (!quote) {
       return NextResponse.json(
-        { error: 'Quote not found' },
+        { error: 'Quote not found from any source' },
         { status: 404 }
       )
     }
 
-    // Add demo indicator and update timestamp
-    const demoQuote = {
-      ...quote,
-      isDemoData: true,
-      timestamp: Date.now()
-    }
+    // Cache for 30 seconds
+    await cache.set(cacheKey, quote, 30)
+    console.log(`Cached quote for ${symbol}`)
 
-    return NextResponse.json(demoQuote)
+    return NextResponse.json(quote)
   } catch (error) {
     console.error('Quote API error:', error)
     return NextResponse.json(
