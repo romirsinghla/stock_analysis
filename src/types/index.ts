@@ -75,7 +75,7 @@ export interface OutlookPrediction {
   engine: string
 }
 
-export type TimeFrame = '1D' | '5D' | '1M' | '6M' | 'YTD' | '1Y' | '5Y'
+export type TimeFrame = '1D' | '5D' | '1W' | '1M' | '6M' | 'YTD' | '1Y' | '5Y'
 
 export interface CacheEntry<T> {
   data: T

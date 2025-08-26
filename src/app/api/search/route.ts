@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { yahooFinance, alphaVantage } from '@/lib/api-clients'
+import { alpaca, yahooFinance, alphaVantage } from '@/lib/api-clients'
 import { cache } from '@/lib/redis'
 import { sampleSearchResults, sampleQuotes } from '@/lib/sample-data'
 
@@ -23,14 +23,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached)
     }
 
-    // Try Yahoo Finance first, fallback to Alpha Vantage
-    let results = []
+    // Try Alpaca first, then Yahoo Finance, then Alpha Vantage
+    let results: any[] = []
     
     try {
-      console.log(`Trying Yahoo Finance search for: ${query}`)
-      results = await yahooFinance.searchSymbols(query)
+      console.log(`Trying Alpaca search for: ${query}`)
+      results = await alpaca.searchSymbols(query)
     } catch (error) {
-      console.error('Yahoo Finance search failed:', error)
+      console.error('Alpaca search failed:', error)
+    }
+    
+    if (results.length === 0) {
+      try {
+        console.log(`Trying Yahoo Finance search for: ${query}`)
+        results = await yahooFinance.searchSymbols(query)
+      } catch (error) {
+        console.error('Yahoo Finance search failed:', error)
+      }
     }
     
     if (results.length === 0) {

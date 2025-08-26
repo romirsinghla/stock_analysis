@@ -40,7 +40,7 @@ export class YahooFinanceClient {
 
   async searchSymbols(query: string): Promise<SearchResult[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/search`, {
+      const response = await axios.get(`https://query1.finance.yahoo.com/v1/finance/search`, {
         params: {
           q: query,
           quotesCount: 10,
@@ -312,6 +312,166 @@ export class FinnhubClient {
   }
 }
 
+export class AlpacaClient {
+  private apiKey: string
+  private apiSecret: string
+  private baseUrl = 'https://data.alpaca.markets/v2'
+
+  constructor() {
+    this.apiKey = process.env.ALPACA_API_KEY || ''
+    this.apiSecret = process.env.ALPACA_API_SECRET || ''
+  }
+
+  private getTimeframeParam(timeframe: string): string {
+    const timeframeMap: { [key: string]: string } = {
+      '1D': '15Min',  // Use 15-minute bars for intraday view
+      '5D': '1Hour',  // Use 1-hour bars for 5-day view
+      '1W': '1Day',
+      '1M': '1Day',
+      '6M': '1Day',
+      'YTD': '1Day',
+      '1Y': '1Day',
+      '5Y': '1Week',
+    }
+    return timeframeMap[timeframe] || '1Day'
+  }
+
+  private getDateRange(timeframe: string): { start: string, end: string } {
+    const now = new Date()
+    const end = now.toISOString().split('T')[0]
+    let start: Date
+
+    switch (timeframe) {
+      case '1D':
+        start = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000)
+        break
+      case '5D':
+        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) // 7 days to account for weekends
+        break
+      case '1W':
+        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        break
+      case '1M':
+        start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        break
+      case '6M':
+        start = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
+        break
+      case 'YTD':
+        start = new Date(now.getFullYear(), 0, 1)
+        break
+      case '1Y':
+        start = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+        break
+      case '5Y':
+        start = new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000)
+        break
+      default:
+        start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    }
+
+    return {
+      start: start.toISOString().split('T')[0],
+      end
+    }
+  }
+
+  async getHistoricalData(symbol: string, timeframe: string = '1D'): Promise<ChartData[]> {
+    try {
+      const { start, end } = this.getDateRange(timeframe)
+      const alpacaTimeframe = this.getTimeframeParam(timeframe)
+      
+      const response = await axios.get(`${this.baseUrl}/stocks/bars`, {
+        params: {
+          symbols: symbol.toUpperCase(),
+          timeframe: alpacaTimeframe,
+          start,
+          end,
+          limit: 1000,
+          adjustment: 'split',
+          feed: 'iex'
+        },
+        headers: {
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret,
+          'accept': 'application/json'
+        },
+        timeout: 10000
+      })
+
+      const bars = response.data?.bars?.[symbol.toUpperCase()] || []
+      
+      return bars.map((bar: any) => ({
+        timestamp: new Date(bar.t).getTime(),
+        open: bar.o,
+        high: bar.h,
+        low: bar.l,
+        close: bar.c,
+        volume: bar.v
+      })).sort((a: ChartData, b: ChartData) => a.timestamp - b.timestamp)
+    } catch (error) {
+      console.error('Alpaca API error:', error)
+      return []
+    }
+  }
+
+  async getQuote(symbol: string): Promise<Quote | null> {
+    try {
+      // Get the latest bar to use as current quote
+      const bars = await this.getHistoricalData(symbol, '1D')
+      if (bars.length === 0) return null
+
+      const latestBar = bars[bars.length - 1]
+      const previousBar = bars.length > 1 ? bars[bars.length - 2] : latestBar
+      
+      const change = latestBar.close - previousBar.close
+      const changePercent = previousBar.close > 0 ? (change / previousBar.close) * 100 : 0
+
+      return {
+        symbol: symbol.toUpperCase(),
+        price: latestBar.close,
+        change,
+        changePercent,
+        high: latestBar.high,
+        low: latestBar.low,
+        open: latestBar.open,
+        previousClose: previousBar.close,
+        volume: latestBar.volume,
+        timestamp: latestBar.timestamp
+      }
+    } catch (error) {
+      console.error('Alpaca quote error:', error)
+      return null
+    }
+  }
+
+  async searchSymbols(query: string): Promise<SearchResult[]> {
+    // Alpaca doesn't have a built-in symbol search endpoint
+    // For now, we'll return basic results for common symbols
+    const commonSymbols = [
+      'AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN', 'META', 'NFLX', 'NVDA', 
+      'SPY', 'QQQ', 'IWM', 'AMD', 'INTC', 'CRM', 'ORCL', 'IBM'
+    ]
+    
+    const matchingSymbols = commonSymbols.filter(symbol => 
+      symbol.toLowerCase().includes(query.toLowerCase())
+    )
+
+    return matchingSymbols.map(symbol => ({
+      symbol,
+      name: `${symbol} Inc.`,
+      type: 'Equity',
+      region: 'US',
+      marketOpen: '09:30',
+      marketClose: '16:00',
+      timezone: 'US/Eastern',
+      currency: 'USD',
+      matchScore: symbol.toLowerCase() === query.toLowerCase() ? 1.0 : 0.8
+    }))
+  }
+}
+
 export const yahooFinance = new YahooFinanceClient()
 export const alphaVantage = new AlphaVantageClient()
 export const finnhub = new FinnhubClient()
+export const alpaca = new AlpacaClient()

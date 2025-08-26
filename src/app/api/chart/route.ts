@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { alphaVantage } from '@/lib/api-clients'
+import { alpaca, alphaVantage } from '@/lib/api-clients'
 import { cache } from '@/lib/redis'
 import { generateChartData } from '@/lib/sample-data'
 import type { TimeFrame } from '@/types'
@@ -24,8 +24,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached)
     }
 
-    // DEMO MODE: Use sample chart data
-    const chartData = generateChartData(symbol.toUpperCase(), timeframe)
+    // Try Alpaca first, then Alpha Vantage as fallback
+    let chartData: any[] = []
+    
+    try {
+      console.log(`Trying Alpaca for ${symbol} chart data...`)
+      chartData = await alpaca.getHistoricalData(symbol.toUpperCase(), timeframe)
+    } catch (error) {
+      console.error('Alpaca chart data failed:', error)
+    }
+    
+    if (chartData.length === 0) {
+      try {
+        console.log(`Trying Alpha Vantage for ${symbol} chart data...`)
+        chartData = await alphaVantage.getHistoricalData(symbol.toUpperCase(), timeframe)
+      } catch (error) {
+        console.error('Alpha Vantage chart data failed:', error)
+      }
+    }
+    
+    // If both APIs fail, use sample data as fallback
+    if (chartData.length === 0) {
+      console.log(`Using sample data for ${symbol}...`)
+      chartData = generateChartData(symbol.toUpperCase(), timeframe)
+    }
     
     const ttl = timeframe === '1D' ? 60 : timeframe === '5D' ? 300 : 3600
     await cache.set(cacheKey, chartData, ttl)
