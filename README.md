@@ -1,6 +1,6 @@
 # Stock Predictor 📈
 
-A modern stock tracking and analysis application powered exclusively by **Alpaca Markets API**. Get real-time stock quotes, historical data, and comprehensive charting for informed investment decisions.
+A modern stock tracking and analysis application powered exclusively by **Alpaca Markets API**. Get real-time stock quotes, historical data, and comprehensive charting for informed investment decisions. This is a personal project and not financial advise.
 
 ## 📦 Archive Note
 
@@ -14,6 +14,12 @@ The previous version of this application (Stock-v1) is preserved in the `archive
 - **Multiple Timeframes**: 1D, 5D, 1W, 1M, 6M, YTD, 1Y, 5Y analysis
 - **Responsive Design**: Works perfectly on desktop and mobile
 - **Alpaca Integration**: Direct connection to professional-grade market data
+
+## ✨ Upcoming Features
+
+- **Real-time Stock Analysis**: Short summary of the stock ticket, based on API data and market sentiment 
+- **Machine-Learning Model**: In house Machine Learning model for suggestions (buy/sell)
+- **News and Everyday Updates**: Quick read news articles for the stock ticket.
 
 ## 🚀 Getting Started
 
