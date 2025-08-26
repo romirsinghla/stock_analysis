@@ -2,6 +2,8 @@ import axios from 'axios'
 import type { Quote, ChartData, Company, SearchResult, AnalystRecommendation, PriceTarget } from '@/types'
 
 export class YahooFinanceClient {
+  private baseUrl = 'https://query1.finance.yahoo.com/v1'
+
   async getQuote(symbol: string): Promise<Quote | null> {
     try {
       // Try the alternate Yahoo Finance endpoint
